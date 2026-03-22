@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-multipart
+numpy
+torch
+torchaudio
+transformers
+faster-whisper
+openai-whisper
+TTS
+llama-cpp-python
+sounddevice

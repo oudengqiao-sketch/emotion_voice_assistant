@@ -5,10 +5,12 @@ venv/
 # Python缓存
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # 音频文件
 *.wav
 emotion_audio/
+web_tmp/
 
 # 模型
 llama.cpp/

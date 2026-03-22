@@ -1,0 +1,10 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+venv
+eva_env
+web_tmp
+output.wav
+emotion_audio
+llama.cpp

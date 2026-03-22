@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Emotion Voice Assistant</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <p class="eyebrow">Emotion Voice Assistant</p>
+      <h1>把情绪语音助手做成可以公开体验的网页</h1>
+      <p class="lede">
+        点击录音，网页会把你的语音送到后端，完成语音识别、情绪分析、回复生成和情绪化语音合成。
+      </p>
+      <div class="hero-actions">
+        <button id="startBtn" class="primary">开始录音</button>
+        <button id="stopBtn" class="secondary" disabled>停止并分析</button>
+        <button id="clearBtn" class="ghost">清空结果</button>
+      </div>
+      <div class="status-row">
+        <span class="status-pill" id="status">待机中</span>
+        <span class="subtle">后端接口：<code>/api/analyze</code></span>
+      </div>
+    </section>
+
+    <section class="panel grid">
+      <article class="card feature">
+        <span class="card-label">用户文本</span>
+        <div id="userText" class="card-value">-</div>
+      </article>
+      <article class="card">
+        <span class="card-label">音频情绪</span>
+        <div id="audioEmotion" class="card-value">-</div>
+      </article>
+      <article class="card">
+        <span class="card-label">文本情绪</span>
+        <div id="textEmotion" class="card-value">-</div>
+      </article>
+      <article class="card">
+        <span class="card-label">最终情绪</span>
+        <div id="finalEmotion" class="card-value">-</div>
+      </article>
+      <article class="card feature">
+        <span class="card-label">助手回复</span>
+        <div id="replyText" class="card-value">-</div>
+      </article>
+      <article class="card">
+        <span class="card-label">回复语气</span>
+        <div id="replyEmotion" class="card-value">-</div>
+      </article>
+    </section>
+
+    <section class="panel response-panel">
+      <div class="response-head">
+        <div>
+          <p class="eyebrow small">Voice Reply</p>
+          <h2>语音回复</h2>
+        </div>
+        <p class="subtle" id="timing">等待分析结果...</p>
+      </div>
+      <p id="replyBox" class="reply-copy">等待生成...</p>
+      <audio id="player" controls preload="none"></audio>
+    </section>
+
+    <section class="panel log-panel">
+      <div class="response-head">
+        <div>
+          <p class="eyebrow small">Server Log</p>
+          <h2>状态信息</h2>
+        </div>
+      </div>
+      <pre id="log">等待录音...</pre>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
