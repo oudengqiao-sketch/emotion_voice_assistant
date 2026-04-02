@@ -7,10 +7,17 @@ from llama_cpp import Llama
 from faster_whisper import WhisperModel
 from TTS.api import TTS
 
+from agent.agent_brain import run_agent
 from record_audio import record_audio
 from emotion.audio_emotion import AudioEmotionRecognizer
 from emotion.text_emotion import TextEmotionRecognizer
 from emotion.emotion_fusion import EmotionFusion
+from memory.memory_manager import MemoryManager
+from tools.registry import ToolRegistry
+from tools.get_time import get_time
+from tools.get_weather import get_weather
+from tools.save_journal import save_journal
+from tools.emotion_checkin import emotion_checkin
 
 
 # =========================
@@ -57,7 +64,7 @@ emotion_fusion = EmotionFusion()
 print("🚀 Loading LLM...")
 llm = Llama(
     model_path=str(MODEL_PATH),
-    n_gpu_layers=-1,   # M1 Metal
+    n_gpu_layers=-1,
     n_ctx=1024,
     n_threads=8,
     verbose=False,
@@ -69,6 +76,22 @@ llm = Llama(
 print("🚀 Loading TTS...")
 tts = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2")
 print("✅ All models loaded.")
+
+# =========================
+# 5 Memory
+# =========================
+memory_manager = MemoryManager(ROOT)
+print("🧠 Memory ready.")
+
+# =========================
+# 6 Tools
+# =========================
+registry = ToolRegistry()
+registry.register("get_time", get_time)
+registry.register("get_weather", get_weather)
+registry.register("save_journal", save_journal)
+registry.register("emotion_checkin", emotion_checkin)
+print("🛠️ Tools ready.")
 
 
 # =========================
@@ -84,26 +107,46 @@ def normalize_emotion(emotion: str) -> str:
         "excited": "happy",
         "surprise": "happy",
         "surprised": "happy",
-
         "sadness": "sad",
         "sorrow": "sad",
-
         "anger": "angry",
         "ang": "angry",
-
         "fear": "fear",
         "fearful": "fear",
         "afraid": "fear",
-
         "confusion": "confused",
         "puzzled": "confused",
-
         "calm": "neutral",
         "comfort": "neutral",
     }
 
     e = emotion.strip().lower()
     return mapping.get(e, e if e in {"happy", "sad", "angry", "neutral", "fear", "confused"} else "neutral")
+
+
+def decide_tool(user_text: str):
+    if "时间" in user_text or "几点" in user_text:
+        return "get_time"
+    if "天气" in user_text:
+        return "get_weather"
+    if "记录" in user_text or "日记" in user_text:
+        return "save_journal"
+    if "心情" in user_text:
+        return "emotion_checkin"
+    return None
+
+
+def call_tool(tool_name: str | None, user_text: str, emotion: str):
+    if not tool_name:
+        return ""
+
+    if tool_name == "save_journal":
+        return registry.call(tool_name, user_text=user_text, root_dir=str(ROOT))
+
+    if tool_name == "emotion_checkin":
+        return registry.call(tool_name, emotion=emotion, memory_manager=memory_manager)
+
+    return registry.call(tool_name)
 
 
 def get_voice_file(emotion: str):
@@ -122,37 +165,7 @@ def get_voice_file(emotion: str):
     return None
 
 
-def run_llm(user_text: str, emotion: str) -> str:
-    emotion = normalize_emotion(emotion)
-
-    prompt = f"""你是一个中文情绪语音助手。
-
-用户当前情绪：{emotion}
-
-要求：
-1. 只用中文回答
-2. 只回复一句话
-3. 不要重复，不要解释，不要提“用户说”
-4. 第一段必须严格输出格式：[emotion=happy|sad|angry|neutral|fear|confused]
-5. 第二段直接输出回复内容
-6. 不要输出多余标签，不要输出 emotion=angry 这种裸文本
-
-用户输入：{user_text}
-请开始回答：
-"""
-
-    output = llm(
-        prompt,
-        max_tokens=20,
-        temperature=0.5,
-        stop=["\n", "用户输入：", "请开始回答："]
-    )
-
-    return output["choices"][0]["text"].strip()
-
-
 def parse_llm(text: str):
-    # 先抓合法标签
     match = re.search(r"\[emotion=(happy|sad|angry|neutral|fear|confused)\]", text)
 
     if match:
@@ -160,18 +173,15 @@ def parse_llm(text: str):
     else:
         emotion = "neutral"
 
-    # 去掉各种脏前缀
     clean_text = re.sub(r"\[emotion=.*?\]", "", text)
     clean_text = re.sub(r"emotion\s*=\s*\w+", "", clean_text, flags=re.IGNORECASE)
     clean_text = clean_text.replace("用户说的很对，", "")
     clean_text = clean_text.replace("用户说：", "")
     clean_text = clean_text.strip(" ：:，,。.!！?？")
 
-    # 只保留第一句
     parts = re.split(r"[。！？!?]", clean_text)
     clean_text = parts[0].strip() if parts and parts[0].strip() else "嗯，我明白了。"
 
-    # 补句号
     if not clean_text.endswith("。"):
         clean_text += "。"
 
@@ -240,12 +250,31 @@ def run_assistant():
             print("📄 Text Emotion:", text_e)
             print("🎯 Final Emotion:", final_e)
 
-            llm_output = run_llm(user_text, final_e)
-            print("🧠 LLM:", llm_output)
+            agent_result = run_agent(
+                user_text=user_text,
+                emotion=final_e,
+                memory_manager=memory_manager,
+                llm=llm,
+                decide_tool=decide_tool,
+                call_tool=call_tool,
+            )
 
-            reply_emotion, reply = parse_llm(llm_output)
+            if agent_result["tool_name"]:
+                print("🛠️ Tool:", agent_result["tool_name"])
+                print("🛠️ Tool Result:", agent_result["tool_result"])
+
+            print("🧠 Emotion Trend:", agent_result["memory_context"]["emotion_trend"])
+            print("🧠 LLM:", agent_result["llm_output"])
+
+            reply_emotion, reply = parse_llm(agent_result["llm_output"])
             print("🎭 Reply Emotion:", reply_emotion)
             print("🤖 回复:", reply)
+
+            memory_manager.save_turn(
+                user_text=user_text,
+                assistant_reply=reply,
+                emotion=final_e,
+            )
 
             speak(reply, reply_emotion)
 

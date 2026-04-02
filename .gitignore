@@ -11,6 +11,7 @@ __pycache__/
 *.wav
 emotion_audio/
 web_tmp/
+memory/data/
 
 # 模型
 llama.cpp/
