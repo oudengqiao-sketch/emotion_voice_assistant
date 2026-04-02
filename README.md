@@ -1,4 +1,4 @@
-# Emotion Voice Assistant
+# Emotion Voice Agent
 
 一个中文情绪陪伴多模态 Agent 系统。
 
